@@ -1,0 +1,14 @@
+version: '2'
+services:
+  example-service:
+    build:
+      context: .
+    environment:
+      EVENT_STORE_URL: jdbc:mysql://root:root@event-store:3306/cdc
+      STARTING_OFFSET: binlog.000001/0
+    ports:
+      - 4567
+  event-store:
+    image: papaledoupe/kurrent-store-sql:latest
+    ports:
+      - 3306
