@@ -47,10 +47,7 @@ internal class FunctionalAggregate<D>(data: D,
     override var data: D = data ; private set
     override var info: AggregateInfo = info ; private set
 
-    override fun handle(commandVersion: Long, command: Command): List<Event> {
-        if (info.version != commandVersion) {
-            throw AggregateVersionConflictException
-        }
+    override fun handle(command: Command): List<Event> {
         val handler = commands[command::class] ?: return emptyList()
         val events = handler(data, command)
         log.debug("$info cmd ${command::class.simpleName} -> ${events.map { it::class.simpleName }}")
@@ -63,6 +60,6 @@ internal class FunctionalAggregate<D>(data: D,
             data = handler(data, event)
         }
         info = info.copy(version = info.version + 1)
-        log.debug("$info evt ${event::class.simpleName}}")
+        log.debug("$info evt ${event::class.simpleName}")
     }
 }

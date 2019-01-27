@@ -37,7 +37,8 @@ domain to commands.
 Your event store (purple) could be anything that can have immutable log-like semantics, e.g. a persistent Kafka topic or
 an append-only relational database table. In these examples, the log reader could be a Kafka consumer or some method of
 change data capture (CDC) appropriate to your database vendor, e.g. the MySQL binary log. Kurrent provides 
-implementations for certain technologies in kurrent-store-* modules.
+implementations for certain technologies in kurrent-store-* modules. Note that active CDC is optional, as discussed in
+the [data flow](#data-flow) section 
 
 Your snapshot store (blue) implementation could be anything you like (including having no snapshots at all) - in memory, 
 your favourite data store, etc. The snapshot store does not have to be updated for every change to the aggregate, and
@@ -57,10 +58,12 @@ changes to the application state.
   before receiving and validating the command.
 - If the command is accepted, one or more events are raised describing the change. These events are written to the
   event store.
-- At some point in the future, the event log reader receives the event(s) from the log. These are routed back to the
-  appropriate aggregates via aggregate services. This causes the aggregate's actual internal state to change (unlike
-  when handling commands, which simply raise events describing the change), so that a view of the current state can be 
-  (optionally) written to the snapshot store.
+- If you are using a change data capture (CDC) module, at some point in the future, the event log reader receives the 
+  event(s) from the log. These are routed back to the appropriate aggregates via aggregate services. This causes the 
+  aggregate's actual internal state to change (unlike when handling commands, which simply raise events describing the 
+  change), so that a view of the current state can be (optionally) written to the snapshot store.
+  Note that these modules are optional - if you choose not to use one, your aggregates and snapshots will be updated 
+  passively at read time.
 - Your applications read clients will read from the snapshot store, with an optional fallback to the event store if no
   snapshot is available. Note that the state of the snapshot store is eventually consistent with the event store (at 
   best; your snapshot store implementation may skip some or all snapshots entirely)

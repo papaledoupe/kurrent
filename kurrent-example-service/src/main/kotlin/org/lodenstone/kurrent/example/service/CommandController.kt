@@ -42,7 +42,7 @@ class CommandController(private val objectMapper: ObjectMapper,
             val service = aggregateServiceRegistry.serviceForType(request.params(":type"))
                     ?: throw NoSuchAggregateTypeException(request.params(":type"))
 
-            val aggregate = service.loadFromSnapshotThenEventStoreFallback(request.params(":id"))
+            val aggregate = service.loadLatest(request.params(":id"))
                     ?: throw NoSuchAggregateException(request.params(":type"), request.params(":id"))
 
             objectMapper.writeJsonResponse(response, obj = aggregate, status = 200)

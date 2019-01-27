@@ -6,7 +6,7 @@ import org.hamcrest.MatcherAssert.assertThat
 import org.junit.Test
 import org.lodenstone.kurrent.core.aggregate.Event
 
-class MapEventRegistryTest {
+class MapEventRegistryUnitTest {
 
     class ClassEvent : Event
     object ObjectEvent : Event

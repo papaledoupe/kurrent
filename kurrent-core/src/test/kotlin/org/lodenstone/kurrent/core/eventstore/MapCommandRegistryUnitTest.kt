@@ -6,7 +6,7 @@ import org.hamcrest.MatcherAssert.assertThat
 import org.junit.Test
 import org.lodenstone.kurrent.core.aggregate.Command
 
-class MapCommandRegistryTest {
+class MapCommandRegistryUnitTest {
 
     class ClassCommand : Command
     object ObjectCommand : Command

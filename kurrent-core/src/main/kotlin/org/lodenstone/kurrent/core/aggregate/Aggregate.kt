@@ -6,12 +6,14 @@ interface Initializing
 
 data class AggregateInfo(val type: String,
                          val id: String,
-                         val version: Long)
+                         val version: Long) {
+    fun incremented() = copy(version = version + 1)
+}
 
 interface Aggregate<D> {
     val data: D
     val info: AggregateInfo
-    fun handle(commandVersion: Long, command: Command): List<Event>
+    fun handle(command: Command): List<Event>
     fun apply(event: Event)
 
     interface Builder<D> {

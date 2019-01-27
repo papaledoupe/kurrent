@@ -1,7 +1,7 @@
 package org.lodenstone.kurrent.example.service
 
 import org.lodenstone.kurrent.core.aggregate.*
-import org.lodenstone.kurrent.core.eventstore.EventStoreClient
+import org.lodenstone.kurrent.core.eventstore.EventStore
 
 class TicTacToe {
 
@@ -89,8 +89,8 @@ class TicTacToe {
     }
 }
 
-class TicTacToeService(override val snapshotStore: AggregateSnapshotStore<TicTacToe>,
-                       eventStoreClient: EventStoreClient) : AggregateService<TicTacToe>(eventStoreClient) {
+class TicTacToeService(eventStore: EventStore, snapshotStore: AggregateSnapshotStore<TicTacToe>)
+    : AggregateService<TicTacToe>(eventStore, snapshotStore) {
     override val aggregateType = TicTacToe.aggregateType
     override val aggregateBuilder = TicTacToe.builder
     override fun initializeState() = TicTacToe()

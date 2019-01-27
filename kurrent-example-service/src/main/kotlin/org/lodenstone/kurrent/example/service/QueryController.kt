@@ -9,7 +9,7 @@ class QueryController(private val snapshotStore: AggregateSnapshotStore<TicTacTo
         get("/query/TicTacToe/:id") {
             val id = request.params(":id")
             response.type("text/plain")
-            snapshotStore.getLatest(id)?.printBoard()
+            snapshotStore.getLatest(id)?.aggregate?.printBoard()
                     ?: throw NoSuchAggregateException(TicTacToe.aggregateType, id)
         }
     }

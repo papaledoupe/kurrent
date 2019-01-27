@@ -17,7 +17,7 @@ import org.lodenstone.kurrent.core.aggregate.InMemoryAggregateSnapshotStore
 import org.lodenstone.kurrent.core.aggregate.MapAggregateServiceRegistry
 import org.lodenstone.kurrent.core.eventstore.*
 import org.lodenstone.kurrent.eventstore.sql.EventRepository
-import org.lodenstone.kurrent.eventstore.sql.JdbiEventStoreClient
+import org.lodenstone.kurrent.eventstore.sql.JdbiEventStore
 import org.lodenstone.kurrent.mysqlcdc.DefaultEventRouter
 import org.lodenstone.kurrent.mysqlcdc.EventRouter
 import org.lodenstone.kurrent.mysqlcdc.LogReader
@@ -99,7 +99,7 @@ val kurrentModule = applicationContext {
                         false
                     }
                 }
-        JdbiEventStoreClient(dao!!, get(), get()) as EventStoreClient
+        JdbiEventStore(dao!!, get(), get()) as EventStore
     }
 
     // Aggregates
