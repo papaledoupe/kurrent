@@ -31,13 +31,13 @@ class SqlEventStoreIntegrationTest {
     }
 
     interface TestEvent : Event {
-        object Init : TestEvent, Initializing
+        data class Created(val initialData: String) : Initialized
         object NoParams : TestEvent
         data class Params @JsonCreator constructor(@JsonProperty("param") val param: String) : TestEvent
     }
 
     val testEventRegistry = MapEventRegistry(mapOf(
-            "Init" to TestEvent.Init::class,
+            "Created" to TestEvent.Created::class,
             "NoParams" to TestEvent.NoParams::class,
             "Params" to TestEvent.Params::class
     ))
@@ -71,7 +71,7 @@ class SqlEventStoreIntegrationTest {
 
         assertThat(events).hasSize(3)
         assertThat(events[0]).matches { it.aggregateInfo == aggregateInfo.copy(version = 1) }
-        assertThat(events[0]).matches { it.event is TestEvent.Init }
+        assertThat(events[0]).matches { it.event is TestEvent.Created }
         assertThat(events[1]).matches { it.aggregateInfo == aggregateInfo.copy(version = 2) }
         assertThat(events[1]).matches { it.event is TestEvent.NoParams }
         assertThat(events[2]).matches { it.aggregateInfo == aggregateInfo.copy(version = 3) }
@@ -87,7 +87,7 @@ class SqlEventStoreIntegrationTest {
 
         assertThat(events).hasSize(2)
         assertThat(events[0]).matches { it.aggregateInfo == aggregateInfo.copy(version = 1) }
-        assertThat(events[0]).matches { it.event is TestEvent.Init }
+        assertThat(events[0]).matches { it.event is Initialized }
         assertThat(events[1]).matches { it.aggregateInfo == aggregateInfo.copy(version = 2) }
         assertThat(events[1]).matches { it.event is TestEvent.NoParams }
     }
@@ -109,13 +109,13 @@ class SqlEventStoreIntegrationTest {
         val id = UUID.randomUUID().toString()
         val aggregateInfo = AggregateInfo(type = testAggregateType, id = id, version = 1)
 
-        client.write(TypedAggregateEvent(aggregateInfo, TestEvent.Init))
+        client.write(TypedAggregateEvent(aggregateInfo, TestEvent.Created("initial data")))
         client.write(TypedAggregateEvent(aggregateInfo, TestEvent.NoParams))
     }
 
     private fun writeSampleEvents(startingInfo: AggregateInfo) {
         val events = listOf<AggregateEvent<*>>(
-                TypedAggregateEvent(startingInfo, TestEvent.Init),
+                TypedAggregateEvent(startingInfo, TestEvent.Created("initial data")),
                 TypedAggregateEvent(startingInfo.incremented(), TestEvent.NoParams),
                 TypedAggregateEvent(startingInfo.incremented().incremented(), TestEvent.Params("hello world"))
         )

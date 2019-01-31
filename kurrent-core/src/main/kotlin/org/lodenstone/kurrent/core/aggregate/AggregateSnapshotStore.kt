@@ -2,10 +2,10 @@ package org.lodenstone.kurrent.core.aggregate
 
 data class Versioned<A>(val aggregate: A, val version: Long)
 
-interface AggregateSnapshotStore<A> {
-    fun getLatest(aggregateId: String): Versioned<A>?
-    fun get(aggregateId: String, aggregateVersion: Long): A?
-    fun put(aggregate: Aggregate<A>)
+interface AggregateSnapshotStore<D> {
+    fun getLatest(aggregateId: String): Versioned<D>?
+    fun get(aggregateId: String, aggregateVersion: Long): D?
+    fun put(aggregateInfo: AggregateInfo, data: D)
 }
 
 class InMemoryAggregateSnapshotStore<A> : AggregateSnapshotStore<A> {
@@ -18,7 +18,7 @@ class InMemoryAggregateSnapshotStore<A> : AggregateSnapshotStore<A> {
 
     override fun get(aggregateId: String, aggregateVersion: Long) = map[aggregateId]?.get(aggregateVersion)
 
-    override fun put(aggregate: Aggregate<A>) {
-        map.getOrPut(aggregate.info.id, ::mutableMapOf)[aggregate.info.version] = aggregate.data
+    override fun put(aggregateInfo: AggregateInfo, data: A) {
+        map.getOrPut(aggregateInfo.id, ::mutableMapOf)[aggregateInfo.version] = data
     }
 }

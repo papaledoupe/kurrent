@@ -1,6 +1,7 @@
 package org.lodenstone.kurrent.core.eventstore
 
 import org.lodenstone.kurrent.core.aggregate.Event
+import org.lodenstone.kurrent.core.aggregate.FunctionalAggregateBuilder
 import kotlin.reflect.KClass
 
 interface EventRegistry {

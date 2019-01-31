@@ -2,7 +2,9 @@ package org.lodenstone.kurrent.core.aggregate
 
 interface Event
 interface Command
-interface Initializing
+
+interface Initialize : Command
+interface Initialized : Event
 
 data class AggregateInfo(val type: String,
                          val id: String,
@@ -11,13 +13,13 @@ data class AggregateInfo(val type: String,
 }
 
 interface Aggregate<D> {
-    val data: D
+    val data: D?
     val info: AggregateInfo
     fun handle(command: Command): List<Event>
     fun apply(event: Event)
 
     interface Builder<D> {
-        fun build(data: D, aggregateInfo: AggregateInfo): Aggregate<D>
+        fun build(data: D?, aggregateInfo: AggregateInfo): Aggregate<D>
     }
 }
 

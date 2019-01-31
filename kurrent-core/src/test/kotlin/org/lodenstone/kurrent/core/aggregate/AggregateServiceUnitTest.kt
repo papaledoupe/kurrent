@@ -13,35 +13,41 @@ class AggregateServiceUnitTest {
 
     data class TestData(val string: String)
 
-    object Create : Command, Initializing
-    object Created : Event
+    data class Create(val startingString: String) : Initialize
+    data class Created(val startingString: String) : Initialized
     data class AddChar(val char: Char) : Command
+    data class AddChars(val chars: List<Char>) : Command
     data class CharAdded(val newString: String) : Event
 
     class TestAggregateService(eventStore: EventStore, snapshotStore: AggregateSnapshotStore<TestData>)
         : AggregateService<TestData>(eventStore, snapshotStore) {
         override val aggregateType = "test"
-
-        companion object {
-            val aggregateBuilder = aggregate<TestData> {
-                command<Create> { _, _ ->
-                    listOf(Created)
+        override val aggregateBuilder = aggregate<TestData> {
+            initializingCommand<Create> { cmd ->
+                Created(startingString = cmd.startingString)
+            }
+            initializingEvent<Created> { evt ->
+                TestData(string = evt.startingString)
+            }
+            command<AddChar> { cmd ->
+                if (cmd.char == 'z') {
+                    throw RejectedCommandException("letter z is not allowed!")
                 }
-                command<AddChar> { data, cmd ->
-                    if (cmd.char == 'z') {
-                        throw RejectedCommandException("letter z is not allowed!")
-                    }
-                    listOf(CharAdded(data.string + cmd.char))
+                listOf(CharAdded(this.string + cmd.char))
+            }
+            command<AddChars> { cmd ->
+                val events = mutableListOf<Event>()
+                cmd.chars.fold(this.string) { str, c ->
+                    val newStr = str + c
+                    events += CharAdded(newStr)
+                    newStr
                 }
-                event<CharAdded> { _, evt ->
-                    TestData(string = evt.newString)
-                }
+                events
+            }
+            event<CharAdded> { evt ->
+                TestData(string = evt.newString)
             }
         }
-
-        override val aggregateBuilder = TestAggregateService.aggregateBuilder
-
-        override fun initializeState() = TestData(string = "")
     }
 
     lateinit var eventStoreMock: EventStore
@@ -57,7 +63,7 @@ class AggregateServiceUnitTest {
     @Test fun `loads aggregate from event store when no snapshot`() {
         every { snapshotStoreMock.getLatest("id") } returns null
         every { eventStoreMock.findAllEvents("test", "id" )} returns listOf(
-                TypedAggregateEvent(AggregateInfo("test", "id", 1), CharAdded("h")),
+                TypedAggregateEvent(AggregateInfo("test", "id", 1), Created(startingString = "h")),
                 TypedAggregateEvent(AggregateInfo("test", "id", 2), CharAdded("he")),
                 TypedAggregateEvent(AggregateInfo("test", "id", 3), CharAdded("hel")),
                 TypedAggregateEvent(AggregateInfo("test", "id", 4), CharAdded("hell")),
@@ -72,7 +78,7 @@ class AggregateServiceUnitTest {
     @Test fun `populates snapshot store when loading aggregate from event store`() {
         every { snapshotStoreMock.getLatest("id") } returns null
         every { eventStoreMock.findAllEvents("test", "id" )} returns listOf(
-                TypedAggregateEvent(AggregateInfo("test", "id", 1), CharAdded("h")),
+                TypedAggregateEvent(AggregateInfo("test", "id", 1), Created(startingString = "h")),
                 TypedAggregateEvent(AggregateInfo("test", "id", 2), CharAdded("he")),
                 TypedAggregateEvent(AggregateInfo("test", "id", 3), CharAdded("hel")),
                 TypedAggregateEvent(AggregateInfo("test", "id", 4), CharAdded("hell")),
@@ -82,9 +88,9 @@ class AggregateServiceUnitTest {
         aggregateService.loadLatest("id")
 
         verify(exactly = 1) {
-            snapshotStoreMock.put(match {
-                it.data.string == "hello" && it.info == AggregateInfo("test", "id", 5)
-            })
+            snapshotStoreMock.put(
+                    eq(AggregateInfo("test", "id", 5)),
+                    match { it.string == "hello" })
         }
     }
 
@@ -113,9 +119,9 @@ class AggregateServiceUnitTest {
         aggregateService.loadLatest("id")
 
         verify(exactly = 1) {
-            snapshotStoreMock.put(match {
-                it.data.string == "hello" && it.info == AggregateInfo("test", "id", 5)
-            })
+            snapshotStoreMock.put(
+                    eq(AggregateInfo("test", "id", 5)),
+                    match { it.string == "hello" })
         }
     }
 
@@ -135,24 +141,23 @@ class AggregateServiceUnitTest {
 
         aggregateService.loadLatest("id")
 
-        verify(exactly = 0) { snapshotStoreMock.put(any()) }
+        verify(exactly = 0) { snapshotStoreMock.put(any(), any()) }
     }
 
     @Test(expected = AggregateIdConflictException::class)
     fun `throws AggregateIdConflictException when initializing aggregate already in event store`() {
         every { snapshotStoreMock.getLatest(any()) } returns null
         every { eventStoreMock.findAllEvents(any(), any()) } returns listOf(
-                TypedAggregateEvent(AggregateInfo("test", "id", 1), Created)
-        )
+                TypedAggregateEvent(AggregateInfo("test", "id", 1), Created(startingString = "h")))
 
-        aggregateService.handleCommand("id", 1, Create)
+        aggregateService.handleCommand("id", 1, Create(startingString = ""))
     }
 
     @Test(expected = AggregateIdConflictException::class)
     fun `throws AggregateIdConflictException when initializing aggregate already in snapshot store`() {
         every { snapshotStoreMock.getLatest(any()) } returns Versioned(TestData("hello"), 2)
 
-        aggregateService.handleCommand("id", 1, Create)
+        aggregateService.handleCommand("id", 1, Create(startingString = ""))
     }
 
     @Test(expected = NoSuchAggregateException::class)
@@ -167,12 +172,12 @@ class AggregateServiceUnitTest {
         every { snapshotStoreMock.getLatest(any()) } returns null
         every { eventStoreMock.findAllEvents(any(), any()) } returns emptyList()
 
-        aggregateService.handleCommand("id", 0, Create)
+        aggregateService.handleCommand("id", 0, Create(startingString = "h"))
 
         verify(exactly = 1) {
             eventStoreMock.write(match {
                 it.size == 1
-                        && it.first().event == Created
+                        && it.first().event == Created(startingString = "h")
                         && it.first().aggregateInfo == AggregateInfo("test", "id", 1)
             })
         }
@@ -188,6 +193,28 @@ class AggregateServiceUnitTest {
                 it.size == 1
                         && it.first().event == CharAdded(newString = "hel")
                         && it.first().aggregateInfo == AggregateInfo("test", "id", 3)
+            })
+        }
+    }
+
+    @Test fun `writes in order to store when applying command resulting in multiple events`() {
+        every { snapshotStoreMock.getLatest(any()) } returns Versioned(TestData("he"), 2)
+        every { eventStoreMock.findEventsAfterVersion(any()) } returns emptyList()
+
+        aggregateService.handleCommand("id", 2, AddChars(listOf('l', 'l', 'o')))
+
+        verify(exactly = 1) {
+            eventStoreMock.write(match {
+                it.size == 3
+
+                        && it.toList()[0].event == CharAdded(newString = "hel")
+                        && it.toList()[0].aggregateInfo == AggregateInfo("test", "id", 3)
+
+                        && it.toList()[1].event == CharAdded(newString = "hell")
+                        && it.toList()[1].aggregateInfo == AggregateInfo("test", "id", 4)
+
+                        && it.toList()[2].event == CharAdded(newString = "hello")
+                        && it.toList()[2].aggregateInfo == AggregateInfo("test", "id", 5)
             })
         }
     }
@@ -209,10 +236,21 @@ class AggregateServiceUnitTest {
     fun `throws AggregateVersionConflictException when applying command with old version`() {
         every { snapshotStoreMock.getLatest(any()) } returns null
         every { eventStoreMock.findAllEvents(any(), any()) } returns listOf(
-                TypedAggregateEvent(AggregateInfo("test", "id", 1), Created),
+                TypedAggregateEvent(AggregateInfo("test", "id", 1), Created(startingString = "h")),
                 TypedAggregateEvent(AggregateInfo("test", "id", 2), CharAdded("h"))
         )
 
         aggregateService.handleCommand("id", 1, AddChar('h'))
+    }
+
+    @Test
+    fun `does not throw AggregateVersionConflictException when applying command with unspecified version`() {
+        every { snapshotStoreMock.getLatest(any()) } returns null
+        every { eventStoreMock.findAllEvents(any(), any()) } returns listOf(
+                TypedAggregateEvent(AggregateInfo("test", "id", 1), Created(startingString = "h")),
+                TypedAggregateEvent(AggregateInfo("test", "id", 2), CharAdded("h"))
+        )
+
+        aggregateService.handleCommand("id", null, AddChar('e'))
     }
 }

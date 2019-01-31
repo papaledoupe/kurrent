@@ -56,12 +56,12 @@ class TicTacToe {
     }
 
     interface Commands {
-        object StartGame : Command, Initializing
+        object StartGame : Initialize
         data class TakeTurn(val player: Player, val i: Int, val j: Int) : Command
     }
 
     interface Events {
-        object GameStarted : Event
+        object GameStarted : Initialized
         data class TurnTaken(val player: Player, val i: Int, val j: Int) : Event
     }
 
@@ -71,19 +71,23 @@ class TicTacToe {
 
         val builder = aggregate<TicTacToe> {
 
-            command<Commands.StartGame> { game ->
-                listOf(Events.GameStarted)
+            initializingCommand<Commands.StartGame> { _ ->
+                Events.GameStarted
             }
 
-            command<Commands.TakeTurn> { game, cmd ->
-                game.assertSpaceExists(cmd.i, cmd.j)
-                game.assertSpaceFree(cmd.i, cmd.j)
+            initializingEvent<Events.GameStarted> { _ ->
+                TicTacToe()
+            }
+
+            command<Commands.TakeTurn> { cmd ->
+                assertSpaceExists(cmd.i, cmd.j)
+                assertSpaceFree(cmd.i, cmd.j)
                 listOf(Events.TurnTaken(cmd.player, cmd.i, cmd.j))
             }
 
-            event<Events.TurnTaken> { game, evt ->
-                game[evt.i, evt.j] = evt.player
-                game
+            event<Events.TurnTaken> { evt ->
+                this[evt.i, evt.j] = evt.player
+                this
             }
         }
     }
@@ -93,5 +97,4 @@ class TicTacToeService(eventStore: EventStore, snapshotStore: AggregateSnapshotS
     : AggregateService<TicTacToe>(eventStore, snapshotStore) {
     override val aggregateType = TicTacToe.aggregateType
     override val aggregateBuilder = TicTacToe.builder
-    override fun initializeState() = TicTacToe()
 }
