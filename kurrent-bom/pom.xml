@@ -13,6 +13,7 @@
         <junit.version>4.12</junit.version>
         <slf4j.version>1.7.25</slf4j.version>
         <jdbi.version>3.2.0</jdbi.version>
+        <spring.version>5.0.2.RELEASE</spring.version>
     </properties>
 
     <dependencyManagement>
@@ -25,7 +26,7 @@
             </dependency>
             <dependency>
                 <groupId>org.lodenstone.kurrent</groupId>
-                <artifactId>kurrent-reflections</artifactId>
+                <artifactId>kurrent-spring</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -68,11 +69,6 @@
                 <version>${slf4j.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.reflections</groupId>
-                <artifactId>reflections</artifactId>
-                <version>0.9.11</version>
-            </dependency>
-            <dependency>
                 <groupId>com.github.shyiko</groupId>
                 <artifactId>mysql-binlog-connector-java</artifactId>
                 <version>0.16.1</version>
@@ -91,6 +87,16 @@
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-kotlin-sqlobject</artifactId>
                 <version>${jdbi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-context</artifactId>
+                <version>${spring.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-test</artifactId>
+                <version>${spring.version}</version>
             </dependency>
 
             <!-- test -->

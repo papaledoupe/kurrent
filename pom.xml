@@ -18,7 +18,7 @@
     <modules>
         <module>kurrent-bom</module>
         <module>kurrent-core</module>
-        <module>kurrent-reflections</module>
+        <module>kurrent-spring</module>
         <module>kurrent-store-sql</module>
         <module>kurrent-store-mysql-cdc</module>
     </modules>
