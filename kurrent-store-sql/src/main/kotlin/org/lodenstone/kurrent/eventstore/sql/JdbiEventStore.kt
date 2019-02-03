@@ -50,7 +50,7 @@ class JdbiEventStore(private val repository: EventRepository,
                 logger.info("Wrote event: $eventData")
             } catch (e: UnableToExecuteStatementException) {
                 if (e.cause is SQLIntegrityConstraintViolationException) {
-                    throw AggregateVersionConflictException
+                    throw AggregateVersionConflictException("version ${eventData.aggregateInfo.version} already exists")
                 } else {
                     throw e
                 }
