@@ -1,6 +1,7 @@
 package org.lodenstone.kurrent.spring.eventstore
 
 import com.testpackage.TestCommand
+import com.testpackage.UnannotatedCommand
 import com.testpackage.child.AnotherTestCommand
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Test
@@ -78,5 +79,33 @@ class CommandTypeRegistrarIntegrationTest {
                 .isEqualTo(YetAnotherTestCommand::class)
         assertThat(mapCommandRegistry.classForCommandName<Command>("testCommand")).isNull()
         assertThat(mapCommandRegistry.classForCommandName<Command>("another-test-command")).isNull()
+    }
+
+    @Test fun `registers unannotated command types by class name`() {
+
+        @EnableKurrent(scanBasePackages = [ "com.testpackage" ])
+        @Configuration
+        open class Config
+
+        val ctx = AnnotationConfigApplicationContext { register(Config::class.java) }
+        ctx.refresh()
+        val mapCommandRegistry = ctx.getBean(MapCommandRegistry::class.java)
+
+        assertThat(mapCommandRegistry.commandNameForClass(UnannotatedCommand::class))
+                .isNotNull()
+                .isEqualTo("UnannotatedCommand")
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun `throws IllegalStateException when commands have conflicting names`() {
+
+        // Two commands explicitly named as YetAnotherTestCommand
+
+        @EnableKurrent(scanBasePackages = [ "com.testpackage", "org.lodenstone" ])
+        @Configuration
+        open class Config
+
+        val ctx = AnnotationConfigApplicationContext { register(Config::class.java) }
+        ctx.refresh()
     }
 }

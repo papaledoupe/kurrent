@@ -12,7 +12,6 @@ import org.springframework.context.annotation.ClassPathScanningCandidateComponen
 import org.springframework.context.annotation.ImportBeanDefinitionRegistrar
 import org.springframework.core.env.Environment
 import org.springframework.core.type.AnnotationMetadata
-import org.springframework.core.type.filter.AnnotationTypeFilter
 import org.springframework.core.type.filter.AssignableTypeFilter
 import kotlin.reflect.KClass
 
@@ -30,30 +29,40 @@ internal class EventTypeRegistrar : ImportBeanDefinitionRegistrar, EnvironmentAw
 
     override fun registerBeanDefinitions(importingClassMetadata: AnnotationMetadata, beanDefinitionRegistry: BeanDefinitionRegistry) {
         val scanner = ClassPathScanningCandidateComponentProvider(false, environment)
-        scanner.addIncludeFilter(AnnotationTypeFilter(EventType::class.java)
-                .and(AssignableTypeFilter(Event::class.java)))
+        scanner.addIncludeFilter(AssignableTypeFilter(Event::class.java))
 
-        val eventMap: Map<String, KClass<*>> = getPackagesToScan(importingClassMetadata)
+        val eventMap: MutableMap<String, KClass<*>> = mutableMapOf()
+
+        getPackagesToScan(importingClassMetadata)
                 .flatMap { packageToScan ->
                     logger.debug("Looking for candidate event types in $packageToScan")
                     scanner
                             .findCandidateComponents(packageToScan)
                             .also { logger.debug("Found ${it.size} candidate event types") }
                 }
-                .associate { candidateComponent ->
-                    eventRegistrationData(candidateComponent as AnnotatedBeanDefinition)
+                .forEach { candidateComponent ->
+                    val (name, klass) = eventRegistrationData(candidateComponent as AnnotatedBeanDefinition)
+                    if (eventMap.containsKey(name)) {
+                        throw IllegalStateException("Duplicate event name: $name")
+                    }
+                    eventMap[name] = klass
                 }
 
         beanDefinitionRegistry.registerBeanDefinition("kurrentMapEventRegistry", BeanDefinitionBuilder
-                .genericBeanDefinition(MapEventRegistry::class.java) { MapEventRegistry(eventMap) }
+                .genericBeanDefinition(MapEventRegistry::class.java) { MapEventRegistry(eventMap.toMap()) }
                 .beanDefinition)
     }
 
     private fun eventRegistrationData(beanDefinition: AnnotatedBeanDefinition): Pair<String, KClass<*>> {
         val eventTypeAttributes = beanDefinition.metadata.getAnnotationAttributes(EventType::class.qualifiedName!!)
-        val serializedAs = eventTypeAttributes["name"] as String
-        val klass = Class.forName(beanDefinition.beanClassName).kotlin
-        logger.debug("Registering candidate event type ${klass.qualifiedName}")
+        val clazz = Class.forName(beanDefinition.beanClassName, true, Thread.currentThread().contextClassLoader)
+        val serializedAs = if (eventTypeAttributes == null) {
+            clazz.simpleName
+        } else {
+            eventTypeAttributes["name"] as String
+        }
+        val klass = clazz.kotlin
+        logger.debug("Registering candidate event type ${klass.qualifiedName} with name $serializedAs")
         return serializedAs to klass
     }
 }

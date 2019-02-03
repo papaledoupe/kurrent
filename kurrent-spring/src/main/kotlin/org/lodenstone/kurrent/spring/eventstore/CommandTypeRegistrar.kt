@@ -3,7 +3,6 @@ package org.lodenstone.kurrent.spring.eventstore
 import org.lodenstone.kurrent.core.aggregate.Command
 import org.lodenstone.kurrent.core.eventstore.MapCommandRegistry
 import org.lodenstone.kurrent.core.util.loggerFor
-import org.lodenstone.kurrent.spring.EnableKurrent
 import org.lodenstone.kurrent.spring.getPackagesToScan
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition
 import org.springframework.beans.factory.support.BeanDefinitionBuilder
@@ -13,7 +12,6 @@ import org.springframework.context.annotation.ClassPathScanningCandidateComponen
 import org.springframework.context.annotation.ImportBeanDefinitionRegistrar
 import org.springframework.core.env.Environment
 import org.springframework.core.type.AnnotationMetadata
-import org.springframework.core.type.filter.AnnotationTypeFilter
 import org.springframework.core.type.filter.AssignableTypeFilter
 import kotlin.reflect.KClass
 
@@ -31,18 +29,23 @@ internal class CommandTypeRegistrar : ImportBeanDefinitionRegistrar, Environment
 
     override fun registerBeanDefinitions(importingClassMetadata: AnnotationMetadata, beanDefinitionRegistry: BeanDefinitionRegistry) {
         val scanner = ClassPathScanningCandidateComponentProvider(false, environment)
-        scanner.addIncludeFilter(AnnotationTypeFilter(CommandType::class.java)
-                .and(AssignableTypeFilter(Command::class.java)))
+        scanner.addIncludeFilter(AssignableTypeFilter(Command::class.java))
 
-        val commandMap: Map<String, KClass<*>> = getPackagesToScan(importingClassMetadata)
+        val commandMap: MutableMap<String, KClass<*>> = mutableMapOf()
+
+        getPackagesToScan(importingClassMetadata)
                 .flatMap { packageToScan ->
-                    EventTypeRegistrar.logger.debug("Looking for candidate command types in $packageToScan")
+                    logger.debug("Looking for candidate command types in $packageToScan")
                     scanner
                             .findCandidateComponents(packageToScan)
                             .also { logger.debug("Found ${it.size} candidate command types") }
                 }
-                .associate { candidateComponent ->
-                    commandRegistrationData(candidateComponent as AnnotatedBeanDefinition)
+                .forEach { candidateComponent ->
+                    val (name, klass) = commandRegistrationData(candidateComponent as AnnotatedBeanDefinition)
+                    if (commandMap.containsKey(name)) {
+                        throw IllegalStateException("Duplicate command name: $name")
+                    }
+                    commandMap[name] = klass
                 }
 
         beanDefinitionRegistry.registerBeanDefinition("kurrentMapCommandRegistry", BeanDefinitionBuilder
@@ -52,9 +55,14 @@ internal class CommandTypeRegistrar : ImportBeanDefinitionRegistrar, Environment
 
     private fun commandRegistrationData(beanDefinition: AnnotatedBeanDefinition): Pair<String, KClass<*>> {
         val commandTypeAttributes = beanDefinition.metadata.getAnnotationAttributes(CommandType::class.qualifiedName!!)
-        val serializedAs = commandTypeAttributes["name"] as String
-        val klass = Class.forName(beanDefinition.beanClassName).kotlin
-        logger.debug("Registering command candidate type ${klass.qualifiedName}")
+        val clazz = Class.forName(beanDefinition.beanClassName, true, Thread.currentThread().contextClassLoader)
+        val serializedAs = if (commandTypeAttributes == null) {
+            clazz.simpleName
+        } else {
+            commandTypeAttributes["name"] as String
+        }
+        val klass = clazz.kotlin
+        logger.debug("Registering candidate command type ${klass.qualifiedName} with name $serializedAs")
         return serializedAs to klass
     }
 }
