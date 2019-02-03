@@ -17,11 +17,11 @@ abstract class AggregateService<TData : Any>(
 
     protected abstract val aggregateBuilder: Aggregate.Builder<TData>
 
-    fun handleCommand(aggregateId: String, aggregateVersion: Long?, command: Command) {
+    fun handleCommand(aggregateId: String, aggregateVersion: Long?, command: Command): List<AggregateEvent<Event>> {
         val aggregate = if (command is Initialize) {
             if (reconstructFromSnapshotAndOrEventStore(aggregateId) != null) {
                 log.info("attempt to initialize existing $aggregateType $aggregateId")
-                throw AggregateIdConflictException
+                throw AggregateIdConflictException("$aggregateType with ID $aggregateId already exists")
             }
             log.debug("initializing new $aggregateType $aggregateId")
             aggregateBuilder.build(null, AggregateInfo(aggregateType, aggregateId, 0))
@@ -32,22 +32,28 @@ abstract class AggregateService<TData : Any>(
 
         aggregateVersion?.let {
             if (aggregate.info.version != it) {
-                throw AggregateVersionConflictException
+                throw AggregateVersionConflictException("current version is ${aggregate.info.version}, expected $it")
             }
         }
 
-        val events = aggregate.handle(command = command)
+        val initialInfo = aggregate.info
+        // Events raised are applied before persisting, to ensure they can be safely applied
+        val events = aggregate.handleAndApply(command = command)
 
-        eventStore.write(events.mapIndexed { ind, event ->
+        val versionedEvents = events.mapIndexed { ind, event ->
             val aggregateInfo = AggregateInfo(
                     id = aggregateId,
-                    version = aggregate.info.version + 1 + ind,
+                    version = initialInfo.version + 1 + ind,
                     type = aggregateType)
             log.debug("$aggregateInfo will write event $event")
             TypedAggregateEvent(
                     aggregateInfo = aggregateInfo,
                     event = event)
-        })
+        }
+
+        eventStore.write(versionedEvents)
+
+        return versionedEvents
     }
 
     fun applyEvent(event: AggregateEvent<*>) {

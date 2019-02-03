@@ -23,6 +23,8 @@ interface Aggregate<D> {
     }
 }
 
+fun <D> Aggregate<D>.handleAndApply(command: Command) = handle(command).onEach { apply(it) }
+
 interface AggregateEvent<T> where T : Event {
     val aggregateInfo: AggregateInfo
     val event: T

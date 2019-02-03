@@ -6,12 +6,14 @@ import kotlin.reflect.KClass
 
 interface CommandRegistry {
     fun <T> classForCommandName(commandName: String): KClass<T>? where T : Command
-    fun <T> commandNameForClass(clazz: KClass<T>): String? where T : Command
+    fun <T> commandNameForClass(klass: KClass<T>): String? where T : Command
 }
 
-class MapCommandRegistry(private val map: Map<String, KClass<*>>) : CommandRegistry {
-    private val inverseMap: Map<KClass<*>, String> = map.entries.associateBy({ it.value }) { it.key }
+class MapCommandRegistry(map: Map<String, KClass<*>>) : CommandRegistry {
+    // Using java class under the hood as two unequal KClass instances can have identical Class instances
+    private val map: Map<String, Class<*>> = map.mapValues { (_, klass) -> klass.java }
+    private val inverseMap: Map<Class<*>, String> = map.entries.associateBy({ it.value.java }) { it.key }
 
-    override fun <T : Command> classForCommandName(commandName: String) = map[commandName]?.let { it as? KClass<T> }
-    override fun <T : Command> commandNameForClass(clazz: KClass<T>) = inverseMap[clazz]
+    override fun <T : Command> classForCommandName(commandName: String) = map[commandName]?.let { (it as? Class<T>)?.kotlin }
+    override fun <T : Command> commandNameForClass(klass: KClass<T>) = inverseMap[klass.java]
 }
